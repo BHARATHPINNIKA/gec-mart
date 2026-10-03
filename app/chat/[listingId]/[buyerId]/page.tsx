@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '../supabase'
+import { supabase } from '../../../supabase'
 
 type Conversation = {
   listing_id: string
