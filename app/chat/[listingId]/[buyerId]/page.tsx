@@ -1,141 +1,192 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../supabase'
 
-type Conversation = {
+type Message = {
+  id: string
   listing_id: string
-  listing_title: string
   buyer_id: string
-  buyer_email: string
-  last_message: string
-  last_message_at: string
+  sender_id: string
+  sender_email: string
+  content: string
+  created_at: string
 }
 
-export default function ChatsPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([])
+type Listing = {
+  id: string
+  title: string
+  image_url: string | null
+  price: number
+}
+
+export default function ConversationPage() {
+  const params = useParams() as { listingId: string; buyerId: string }
+  const { listingId, buyerId } = params
+
+  const [messages, setMessages] = useState<Message[]>([])
+  const [listing, setListing] = useState<Listing | null>(null)
+  const [otherEmail, setOtherEmail] = useState<string>('')
+  const [input, setInput] = useState('')
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user))
+  }, [])
+
+  useEffect(() => {
+    if (!currentUser) return
+
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-      setUser(user)
-
-      const { data: myListings } = await supabase
+      const { data: listingData } = await supabase
         .from('listings')
-        .select('id, title')
-        .eq('seller_id', user.id)
-
-      if (!myListings || myListings.length === 0) {
-        setLoading(false)
-        return
-      }
-
-      const listingIds = myListings.map((l) => l.id)
+        .select('id, title, image_url, price')
+        .eq('id', listingId)
+        .single()
+      setListing(listingData)
 
       const { data: msgs } = await supabase
         .from('messages')
         .select('*')
-        .in('listing_id', listingIds)
-        .order('created_at', { ascending: false })
+        .eq('listing_id', listingId)
+        .eq('buyer_id', buyerId)
+        .order('created_at', { ascending: true })
 
-      if (!msgs) {
-        setLoading(false)
-        return
-      }
+      setMessages(msgs || [])
 
-      const map = new Map<string, Conversation>()
-      for (const m of msgs) {
-        const buyerKey = m.buyer_id || m.sender_id
-        const key = `${m.listing_id}:${buyerKey}`
-        const listing = myListings.find((l) => l.id === m.listing_id)
+      const other = (msgs || []).find((m) => m.sender_id !== currentUser.id)
+      if (other) setOtherEmail(other.sender_email)
 
-        if (!map.has(key)) {
-          map.set(key, {
-            listing_id: m.listing_id,
-            listing_title: listing?.title || 'Listing',
-            buyer_id: buyerKey,
-            buyer_email:
-              m.sender_id === buyerKey ? m.sender_email : 'Buyer',
-            last_message: m.content,
-            last_message_at: m.created_at,
-          })
-        }
-      }
-
-      setConversations(Array.from(map.values()))
       setLoading(false)
     }
     load()
-  }, [])
 
-  if (!user && !loading) {
+    const channel = supabase
+      .channel(`conversation:${listingId}:${buyerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `listing_id=eq.${listingId}`,
+        },
+        (payload) => {
+          const msg = payload.new as Message
+          if (msg.buyer_id !== buyerId) return
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUser, listingId, buyerId])
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault()
+    if (!input.trim() || !currentUser) return
+
+    const content = input.trim()
+    setInput('')
+
+    await supabase.from('messages').insert({
+      listing_id: listingId,
+      buyer_id: buyerId,
+      sender_id: currentUser.id,
+      sender_email: currentUser.email,
+      content,
+    })
+  }
+
+  if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <p className="text-slate-400">
-          Please{' '}
-          <Link href="/login" className="text-violet-400 underline">
-            log in
-          </Link>{' '}
-          to see your chats.
-        </p>
+      <div className="max-w-3xl mx-auto px-4 py-12">
+        <p className="text-slate-400">Loading conversation...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6">
-        Your <span className="gradient-text">Conversations</span>
-      </h1>
-
-      {loading ? (
-        <p className="text-slate-400">Loading...</p>
-      ) : conversations.length === 0 ? (
-        <div className="glass rounded-2xl text-center py-16 px-4">
-          <div className="text-5xl mb-3">💬</div>
-          <p className="text-slate-400">No conversations yet.</p>
-          <p className="text-sm text-slate-500 mt-1">
-            When buyers message you about your listings, they&apos;ll appear here.
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex flex-col h-[calc(100vh-4rem)]">
+      <div className="flex items-center gap-3 pb-4 border-b border-white/5 mb-4">
+        <Link
+          href="/chats"
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition flex-shrink-0"
+        >
+          ←
+        </Link>
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0">
+          {(otherEmail?.[0] || '?').toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-white truncate">
+            {otherEmail?.split('@')[0] || 'Chat'}
+          </p>
+          <p className="text-xs text-slate-400 truncate">
+            Re: {listing?.title || 'Listing'}
           </p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {conversations.map((c) => (
-            <Link
-              key={`${c.listing_id}:${c.buyer_id}`}
-              href={`/chat/${c.listing_id}/${c.buyer_id}`}
-              className="glass rounded-2xl p-4 flex items-center gap-3 hover:border-violet-500/30 transition"
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0">
-                {(c.buyer_email?.[0] || '?').toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-white truncate">
-                    {c.buyer_email?.split('@')[0] || 'Buyer'}
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-black/20 rounded-2xl border border-white/5 p-3 sm:p-4">
+        {messages.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-8">
+            No messages yet.
+          </p>
+        ) : (
+          messages.map((msg) => {
+            const isOwn = msg.sender_id === currentUser?.id
+            return (
+              <div
+                key={msg.id}
+                className={`mb-3 flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[85%] sm:max-w-[75%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    isOwn
+                      ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/20'
+                      : 'bg-white/5 border border-white/10 text-slate-200'
+                  }`}
+                >
+                  <p className="text-[10px] uppercase tracking-wider opacity-60 mb-1">
+                    {isOwn ? 'You' : msg.sender_email?.split('@')[0] || 'Them'}
                   </p>
-                  <span className="text-[10px] text-slate-500 flex-shrink-0">
-                    {new Date(c.last_message_at).toLocaleDateString()}
-                  </span>
+                  <p className="break-words whitespace-pre-wrap">{msg.content}</p>
                 </div>
-                <p className="text-xs text-violet-400 truncate mt-0.5">
-                  Re: {c.listing_title}
-                </p>
-                <p className="text-sm text-slate-400 truncate mt-0.5">
-                  {c.last_message}
-                </p>
               </div>
-            </Link>
-          ))}
-        </div>
-      )}
+            )
+          })
+        )}
+        <div ref={scrollRef} />
+      </div>
+
+      <form onSubmit={sendMessage} className="flex gap-2 mt-4">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50 transition"
+        />
+        <button
+          type="submit"
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-medium transition shadow-lg shadow-violet-600/20 flex-shrink-0"
+        >
+          Send
+        </button>
+      </form>
     </div>
   )
 }
