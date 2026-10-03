@@ -10,6 +10,7 @@ export default function PostPage() {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [category, setCategory] = useState('calculator')
+  const [phone, setPhone] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -53,6 +54,7 @@ export default function PostPage() {
       image_url,
       seller_id: user.id,
       seller_email: user.email,
+      seller_phone: phone.trim() || null,
     })
 
     if (error) {
@@ -68,15 +70,17 @@ export default function PostPage() {
     'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition'
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">
           Post a <span className="gradient-text">Listing</span>
         </h1>
-        <p className="text-slate-400">Sell your gear in under a minute</p>
+        <p className="text-slate-400 text-sm sm:text-base">
+          Sell your gear in under a minute
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="glass-strong rounded-2xl p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="glass-strong rounded-2xl p-5 sm:p-6 space-y-5">
         <div>
           <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">
             Title *
@@ -142,6 +146,23 @@ export default function PostPage() {
               <option value="other">📦 Other</option>
             </select>
           </div>
+        </div>
+
+        {/* Phone / WhatsApp */}
+        <div>
+          <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">
+            WhatsApp / Phone number (optional)
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={inputClass}
+            placeholder="+91 98765 43210"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Buyers can call or WhatsApp you directly. Leave blank to use in-app chat only.
+          </p>
         </div>
 
         <div>
