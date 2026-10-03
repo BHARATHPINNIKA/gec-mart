@@ -27,7 +27,6 @@ export default function ChatsPage() {
       }
       setUser(user)
 
-      // Get all listings owned by this user
       const { data: myListings } = await supabase
         .from('listings')
         .select('id, title')
@@ -40,7 +39,6 @@ export default function ChatsPage() {
 
       const listingIds = myListings.map((l) => l.id)
 
-      // Get all messages for those listings
       const { data: msgs } = await supabase
         .from('messages')
         .select('*')
@@ -52,7 +50,6 @@ export default function ChatsPage() {
         return
       }
 
-      // Group by (listing_id + buyer_id)
       const map = new Map<string, Conversation>()
       for (const m of msgs) {
         const buyerKey = m.buyer_id || m.sender_id
