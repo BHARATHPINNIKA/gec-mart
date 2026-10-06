@@ -17,6 +17,7 @@ type Listing = {
   seller_id: string
   seller_phone: string | null
   status: string
+  views: number
 }
 
 export default function ListingPage() {
@@ -35,6 +36,14 @@ export default function ListingPage() {
       if (error) console.error(error)
       setListing(data)
       setLoading(false)
+
+      // Only count unique views per browser
+      const viewed = JSON.parse(localStorage.getItem('viewed') || '[]')
+      if (!viewed.includes(id)) {
+        supabase.rpc('increment_views', { listing_id: id })
+        viewed.push(id)
+        localStorage.setItem('viewed', JSON.stringify(viewed))
+      }
     }
     if (id) fetchListing()
   }, [id])
@@ -82,14 +91,12 @@ export default function ListingPage() {
             <span className="text-slate-600">No image</span>
           )}
 
-          {/* Category badge */}
           <div className="absolute top-3 sm:top-4 left-3 sm:left-4">
             <span className="text-xs uppercase tracking-wider text-white font-semibold bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10">
               {listing.category}
             </span>
           </div>
 
-          {/* SOLD overlay */}
           {isSold && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-4xl sm:text-6xl font-bold text-red-400 border-4 border-red-400 px-6 sm:px-10 py-3 sm:py-5 rounded-2xl rotate-[-8deg] bg-black/60 backdrop-blur">
@@ -103,8 +110,27 @@ export default function ListingPage() {
           <h1 className={`text-2xl sm:text-4xl font-bold mb-2 sm:mb-3 ${isSold ? 'text-slate-500' : ''}`}>
             {listing.title}
           </h1>
-          <p className={`text-2xl sm:text-4xl font-bold mb-4 sm:mb-6 ${isSold ? 'text-slate-500 line-through' : 'gradient-text'}`}>
+
+          <p className={`text-2xl sm:text-4xl font-bold mb-2 ${isSold ? 'text-slate-500 line-through' : 'gradient-text'}`}>
             ₹{listing.price.toLocaleString('en-IN')}
+          </p>
+
+          {/* Views counter */}
+          <p className="text-sm text-slate-400 mb-4 sm:mb-6 flex items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              {listing.views || 0} views
+            </span>
           </p>
 
           {listing.description && (
@@ -119,7 +145,6 @@ export default function ListingPage() {
           )}
 
           {isSold ? (
-            /* SOLD — no contact options */
             <div className="mt-6 pt-6 text-center py-8">
               <p className="text-lg sm:text-xl font-semibold text-red-400 mb-2">
                 This item has been sold
