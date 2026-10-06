@@ -5,12 +5,20 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from './supabase'
 
+// ============================================
+// ✏️ CHANGE THIS TO YOUR ADMIN EMAIL
+// ============================================
+const ADMIN_EMAIL = 'bharathpinnika8078@gmail.com'
+// ============================================
+
 export default function Navbar() {
   const [email, setEmail] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+
+  const isAdmin = email === ADMIN_EMAIL
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
@@ -28,7 +36,6 @@ export default function Navbar() {
     }
   }, [])
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMenuOpen(false)
   }, [pathname])
@@ -58,7 +65,6 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -90,9 +96,27 @@ export default function Navbar() {
               <Link href="/chats" className={desktopLinkClass('/chats')}>
                 Chats
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                    pathname === '/admin'
+                      ? 'text-red-400'
+                      : 'text-red-400/80 hover:text-red-400'
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
               <div className="ml-3 pl-3 border-l border-white/10 flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xs font-bold">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                      isAdmin
+                        ? 'bg-gradient-to-br from-red-500 to-orange-500'
+                        : 'bg-gradient-to-br from-violet-500 to-indigo-600'
+                    }`}
+                  >
                     {email[0].toUpperCase()}
                   </div>
                   <span className="text-xs text-slate-400 max-w-[100px] truncate">
@@ -138,12 +162,18 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile dropdown menu */}
+      {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden glass-strong border-t border-white/5 px-4 py-4 space-y-1">
           {email && (
             <div className="flex items-center gap-3 px-4 py-3 mb-2 border-b border-white/5">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-sm font-bold">
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                  isAdmin
+                    ? 'bg-gradient-to-br from-red-500 to-orange-500'
+                    : 'bg-gradient-to-br from-violet-500 to-indigo-600'
+                }`}
+              >
                 {email[0].toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -170,6 +200,18 @@ export default function Navbar() {
               <Link href="/chats" className={linkClass('/chats')}>
                 Chats
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className={`block px-4 py-3 rounded-lg text-base font-medium transition ${
+                    pathname === '/admin'
+                      ? 'bg-red-500/10 text-red-400'
+                      : 'text-red-400 hover:bg-red-500/10'
+                  }`}
+                >
+                  🛡️ Admin Dashboard
+                </Link>
+              )}
             </>
           )}
 
