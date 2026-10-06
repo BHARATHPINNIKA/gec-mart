@@ -7,7 +7,7 @@ import { supabase } from '../supabase'
 // ============================================
 // ✏️ CHANGE THIS TO YOUR ADMIN EMAIL
 // ============================================
-const ADMIN_EMAIL = 'your-email@gmail.com'
+const ADMIN_EMAIL = 'bharathpinnika8078@gmail.com'
 // ============================================
 
 type Report = {
