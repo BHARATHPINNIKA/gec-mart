@@ -107,11 +107,19 @@ export default function ListingPage() {
         </div>
 
         <div className="p-5 sm:p-8">
-          <h1 className={`text-2xl sm:text-4xl font-bold mb-2 sm:mb-3 ${isSold ? 'text-slate-500' : ''}`}>
+          <h1
+            className={`text-2xl sm:text-4xl font-bold mb-2 sm:mb-3 ${
+              isSold ? 'text-slate-500' : ''
+            }`}
+          >
             {listing.title}
           </h1>
 
-          <p className={`text-2xl sm:text-4xl font-bold mb-2 ${isSold ? 'text-slate-500 line-through' : 'gradient-text'}`}>
+          <p
+            className={`text-2xl sm:text-4xl font-bold mb-2 ${
+              isSold ? 'text-slate-500 line-through' : 'gradient-text'
+            }`}
+          >
             ₹{listing.price.toLocaleString('en-IN')}
           </p>
 
@@ -234,6 +242,37 @@ export default function ListingPage() {
                 >
                   See all my chats →
                 </Link>
+              </div>
+
+              {/* Report listing */}
+              <div className="mt-4 pt-4 border-t border-white/5 text-center">
+                <button
+                  onClick={async () => {
+                    const reason = prompt('Why are you reporting this listing?')
+                    if (!reason) return
+
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) {
+                      alert('Please log in to report.')
+                      return
+                    }
+
+                    const { error } = await supabase.from('reports').insert({
+                      listing_id: listing.id,
+                      reporter_id: user.id,
+                      reason,
+                    })
+
+                    if (error) {
+                      alert('Could not submit report: ' + error.message)
+                    } else {
+                      alert('Report submitted. Thank you for keeping GEC Mart safe!')
+                    }
+                  }}
+                  className="text-xs text-slate-500 hover:text-red-400 underline transition"
+                >
+                  Report this listing
+                </button>
               </div>
             </>
           )}

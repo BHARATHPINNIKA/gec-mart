@@ -27,6 +27,21 @@ export default function PostPage() {
       return
     }
 
+    // Check if user is banned
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('banned')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.banned) {
+      setMsg(
+        'Your account has been banned. Contact support if you think this is a mistake.'
+      )
+      setLoading(false)
+      return
+    }
+
     let image_url: string | null = null
     if (file) {
       const path = `${user.id}/${Date.now()}-${file.name}`
@@ -80,7 +95,10 @@ export default function PostPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="glass-strong rounded-2xl p-5 sm:p-6 space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className="glass-strong rounded-2xl p-5 sm:p-6 space-y-5"
+      >
         <div>
           <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">
             Title *
@@ -115,7 +133,7 @@ export default function PostPage() {
             <input
               required
               type="number"
-              min="0"
+              min="1"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className={inputClass}
@@ -161,7 +179,8 @@ export default function PostPage() {
             placeholder="+91 98765 43210"
           />
           <p className="text-xs text-slate-500 mt-1">
-            Buyers can call or WhatsApp you directly. Leave blank to use in-app chat only.
+            Buyers can call or WhatsApp you directly. Leave blank to use in-app
+            chat only.
           </p>
         </div>
 
