@@ -11,11 +11,13 @@ type Listing = {
   category: string
   image_url: string | null
   status: string
+  views: number
 }
 
 export default function MyListingsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     async function load() {
@@ -24,6 +26,7 @@ export default function MyListingsPage() {
         setLoading(false)
         return
       }
+      setUser(user)
 
       const { data } = await supabase
         .from('listings')
@@ -42,30 +45,55 @@ export default function MyListingsPage() {
     setListings((p) => p.map((l) => (l.id === id ? { ...l, status: 'sold' } : l)))
   }
 
+  async function markAvailable(id: string) {
+    await supabase.from('listings').update({ status: 'available' }).eq('id', id)
+    setListings((p) =>
+      p.map((l) => (l.id === id ? { ...l, status: 'available' } : l))
+    )
+  }
+
   async function remove(id: string) {
     if (!confirm('Delete this listing?')) return
     await supabase.from('listings').delete().eq('id', id)
     setListings((p) => p.filter((l) => l.id !== id))
   }
 
+  if (!user && !loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-12 text-center">
+        <p className="text-slate-400">
+          Please{' '}
+          <Link href="/login" className="text-violet-400 underline">
+            log in
+          </Link>{' '}
+          to see your listings.
+        </p>
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold mb-2">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <div className="mb-8 sm:mb-10">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">
           My <span className="gradient-text">Listings</span>
         </h1>
-        <p className="text-slate-400">Manage what you&apos;re selling</p>
+        <p className="text-slate-400 text-sm sm:text-base">
+          Manage what you&apos;re selling
+        </p>
       </div>
 
       {loading ? (
         <p className="text-slate-400">Loading...</p>
       ) : listings.length === 0 ? (
-        <div className="glass rounded-2xl text-center py-20">
+        <div className="glass rounded-2xl text-center py-16 sm:py-20 px-4">
           <div className="text-5xl mb-4">📦</div>
-          <p className="text-slate-400 mb-4">You haven&apos;t posted anything yet.</p>
+          <p className="text-slate-400 mb-4">
+            You haven&apos;t posted anything yet.
+          </p>
           <Link
             href="/post"
-            className="inline-block bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-2.5 rounded-xl font-medium hover:scale-[1.02] transition"
+            className="inline-block bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 px-6 py-2.5 rounded-xl font-medium transition"
           >
             Post your first listing
           </Link>
@@ -75,25 +103,32 @@ export default function MyListingsPage() {
           {listings.map((l) => (
             <div
               key={l.id}
-              className="glass rounded-2xl p-4 flex items-center gap-4 hover:border-violet-500/30 transition"
+              className="glass rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 hover:border-violet-500/30 transition"
             >
-              <div className="w-20 h-20 rounded-xl bg-slate-900 overflow-hidden flex-shrink-0 border border-white/5">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-slate-900 overflow-hidden flex-shrink-0 border border-white/5">
                 {l.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={l.image_url} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={l.image_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
                 <Link
                   href={`/listing/${l.id}`}
-                  className="font-semibold text-white hover:text-violet-300 transition line-clamp-1"
+                  className="font-semibold text-white hover:text-violet-300 transition line-clamp-1 text-sm sm:text-base"
                 >
                   {l.title}
                 </Link>
-                <p className="text-slate-400 text-sm">
-                  ₹{l.price.toLocaleString('en-IN')}
+
+                <p className="text-slate-400 text-xs sm:text-sm">
+                  ₹{l.price.toLocaleString('en-IN')} · {l.views || 0}{' '}
+                  {l.views === 1 ? 'view' : 'views'}
                 </p>
+
                 <span
                   className={`inline-block text-xs font-medium mt-1 px-2 py-0.5 rounded-full ${
                     l.status === 'sold'
@@ -106,14 +141,22 @@ export default function MyListingsPage() {
               </div>
 
               <div className="flex gap-2 flex-shrink-0">
-                {l.status !== 'sold' && (
+                {l.status !== 'sold' ? (
                   <button
                     onClick={() => markSold(l.id)}
-                    className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition"
+                    className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition whitespace-nowrap"
                   >
                     Mark Sold
                   </button>
+                ) : (
+                  <button
+                    onClick={() => markAvailable(l.id)}
+                    className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition whitespace-nowrap"
+                  >
+                    Relist
+                  </button>
                 )}
+
                 <button
                   onClick={() => remove(l.id)}
                   className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg transition"
