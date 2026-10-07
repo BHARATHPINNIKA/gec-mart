@@ -34,7 +34,7 @@ export default function Footer() {
               Bharath Pinnika Department of Information Technology
             </p>
             <p className="text-sm text-slate-400">
-              Seshachala Rao Gudlavalleru Engineering College
+              SESHADRI RAO GUDLAVALLERU ENGINEERING COLLEGE
             </p>
           </div>
 
