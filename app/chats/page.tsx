@@ -34,12 +34,14 @@ export default function ChatsPage() {
         .select('id, title')
         .eq('seller_id', user.id)
 
-      if (!myListings || myListings.length === 0) {
+      const listings: { id: string; title: string }[] = myListings ?? []
+
+      if (listings.length === 0) {
         setLoading(false)
         return
       }
 
-      const listingIds = myListings.map((l) => l.id)
+      const listingIds = listings.map((l) => l.id)
 
       async function fetchMessages() {
         const { data: msgs } = await supabase
@@ -54,7 +56,7 @@ export default function ChatsPage() {
         for (const m of msgs) {
           const buyerKey = m.buyer_id || m.sender_id
           const key = `${m.listing_id}:${buyerKey}`
-          const listing = myListings.find((l) => l.id === m.listing_id)
+          const listing = listings.find((l) => l.id === m.listing_id)
 
           if (!map.has(key)) {
             map.set(key, {
@@ -75,7 +77,7 @@ export default function ChatsPage() {
 
       await fetchMessages()
 
-      // Subscribe to new messages for all my listings
+      // Real-time: refresh list when any new message arrives
       channel = supabase
         .channel('seller-inbox')
         .on(
@@ -86,7 +88,6 @@ export default function ChatsPage() {
             table: 'messages',
           },
           () => {
-            // Refetch conversations when any new message arrives
             fetchMessages()
           }
         )
