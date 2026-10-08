@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from './supabase'
+import UnreadBadge from './unread-badge'
 
 // ============================================
 // ✏️ CHANGE THIS TO YOUR ADMIN EMAIL
@@ -90,12 +91,19 @@ export default function Navbar() {
 
           {email ? (
             <>
-              <Link href="/my-listings" className={desktopLinkClass('/my-listings')}>
+              <Link
+                href="/my-listings"
+                className={desktopLinkClass('/my-listings')}
+              >
                 My Listings
               </Link>
               <Link href="/chats" className={desktopLinkClass('/chats')}>
-                Chats
+                <span className="inline-flex items-center">
+                  Chats
+                  <UnreadBadge />
+                </span>
               </Link>
+
               {isAdmin && (
                 <Link
                   href="/admin"
@@ -108,6 +116,7 @@ export default function Navbar() {
                   Admin
                 </Link>
               )}
+
               <div className="ml-3 pl-3 border-l border-white/10 flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <div
@@ -198,8 +207,12 @@ export default function Navbar() {
                 My Listings
               </Link>
               <Link href="/chats" className={linkClass('/chats')}>
-                Chats
+                <span className="inline-flex items-center">
+                  Chats
+                  <UnreadBadge />
+                </span>
               </Link>
+
               {isAdmin && (
                 <Link
                   href="/admin"
