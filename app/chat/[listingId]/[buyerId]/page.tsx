@@ -42,6 +42,7 @@ export default function ConversationPage() {
     if (!currentUser) return
 
     async function load() {
+      // Load listing info
       const { data: listingData } = await supabase
         .from('listings')
         .select('id, title, image_url, price')
@@ -49,6 +50,7 @@ export default function ConversationPage() {
         .single()
       setListing(listingData)
 
+      // Load messages for this conversation
       const { data: msgs } = await supabase
         .from('messages')
         .select('*')
@@ -58,6 +60,21 @@ export default function ConversationPage() {
 
       setMessages(msgs || [])
 
+      // Mark all incoming messages as read
+      const { error: readError } = await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('listing_id', listingId)
+        .eq('buyer_id', buyerId)
+        .neq('sender_id', currentUser.id)
+
+      if (readError) {
+        console.log('Mark as read error:', readError.message)
+      } else {
+        console.log('Mark as read: SUCCESS')
+      }
+
+      // Find the other person's email
       const other = (msgs || []).find((m) => m.sender_id !== currentUser.id)
       if (other) setOtherEmail(other.sender_email)
 
@@ -65,6 +82,7 @@ export default function ConversationPage() {
     }
     load()
 
+    // Realtime subscription for new messages
     const channel = supabase
       .channel(`conversation:${listingId}:${buyerId}`)
       .on(
@@ -82,6 +100,14 @@ export default function ConversationPage() {
             if (prev.some((m) => m.id === msg.id)) return prev
             return [...prev, msg]
           })
+
+          // If the message is from the other person, mark it read immediately
+          if (msg.sender_id !== currentUser.id) {
+            supabase
+              .from('messages')
+              .update({ read: true })
+              .eq('id', msg.id)
+          }
         }
       )
       .subscribe()
@@ -121,6 +147,7 @@ export default function ConversationPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-white/5 mb-4">
         <Link
           href="/chats"
@@ -141,6 +168,7 @@ export default function ConversationPage() {
         </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-black/20 rounded-2xl border border-white/5 p-3 sm:p-4">
         {messages.length === 0 ? (
           <p className="text-slate-500 text-sm text-center py-8">
@@ -173,6 +201,7 @@ export default function ConversationPage() {
         <div ref={scrollRef} />
       </div>
 
+      {/* Input */}
       <form onSubmit={sendMessage} className="flex gap-2 mt-4">
         <input
           value={input}
