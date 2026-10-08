@@ -19,6 +19,8 @@ export default function ChatsPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
+    let channel: any = null
+
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -27,7 +29,6 @@ export default function ChatsPage() {
       }
       setUser(user)
 
-      // Get all listings owned by this user
       const { data: myListings } = await supabase
         .from('listings')
         .select('id, title')
@@ -40,42 +41,63 @@ export default function ChatsPage() {
 
       const listingIds = myListings.map((l) => l.id)
 
-      // Get all messages for those listings
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('*')
-        .in('listing_id', listingIds)
-        .order('created_at', { ascending: false })
+      async function fetchMessages() {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('*')
+          .in('listing_id', listingIds)
+          .order('created_at', { ascending: false })
 
-      if (!msgs) {
-        setLoading(false)
-        return
-      }
+        if (!msgs) return
 
-      // Group by (listing_id + buyer_id)
-      const map = new Map<string, Conversation>()
-      for (const m of msgs) {
-        const buyerKey = m.buyer_id || m.sender_id
-        const key = `${m.listing_id}:${buyerKey}`
-        const listing = myListings.find((l) => l.id === m.listing_id)
+        const map = new Map<string, Conversation>()
+        for (const m of msgs) {
+          const buyerKey = m.buyer_id || m.sender_id
+          const key = `${m.listing_id}:${buyerKey}`
+          const listing = myListings.find((l) => l.id === m.listing_id)
 
-        if (!map.has(key)) {
-          map.set(key, {
-            listing_id: m.listing_id,
-            listing_title: listing?.title || 'Listing',
-            buyer_id: buyerKey,
-            buyer_email:
-              m.sender_id === buyerKey ? m.sender_email : 'Buyer',
-            last_message: m.content,
-            last_message_at: m.created_at,
-          })
+          if (!map.has(key)) {
+            map.set(key, {
+              listing_id: m.listing_id,
+              listing_title: listing?.title || 'Listing',
+              buyer_id: buyerKey,
+              buyer_email:
+                m.sender_id === buyerKey ? m.sender_email : 'Buyer',
+              last_message: m.content,
+              last_message_at: m.created_at,
+            })
+          }
         }
+
+        setConversations(Array.from(map.values()))
+        setLoading(false)
       }
 
-      setConversations(Array.from(map.values()))
-      setLoading(false)
+      await fetchMessages()
+
+      // Subscribe to new messages for all my listings
+      channel = supabase
+        .channel('seller-inbox')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+          },
+          () => {
+            // Refetch conversations when any new message arrives
+            fetchMessages()
+          }
+        )
+        .subscribe()
     }
+
     load()
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   if (!user && !loading) {
