@@ -26,6 +26,8 @@ export default function ListingPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let channel: any = null
+
     async function fetchListing() {
       const { data, error } = await supabase
         .from('listings')
@@ -40,12 +42,40 @@ export default function ListingPage() {
       // Only count unique views per browser
       const viewed = JSON.parse(localStorage.getItem('viewed') || '[]')
       if (!viewed.includes(id)) {
-        supabase.rpc('increment_views', { listing_id: id })
+        const { error: viewError } = await supabase.rpc('increment_views', {
+          listing_id: id,
+        })
+        if (viewError) console.error('View count error:', viewError)
         viewed.push(id)
         localStorage.setItem('viewed', JSON.stringify(viewed))
       }
+
+      // Subscribe to UPDATE changes on this listing row
+      channel = supabase
+        .channel(`listing-views:${id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'listings',
+            filter: `id=eq.${id}`,
+          },
+          (payload) => {
+            const updated = payload.new as any
+            setListing((prev) =>
+              prev ? { ...prev, views: updated.views } : prev
+            )
+          }
+        )
+        .subscribe()
     }
+
     if (id) fetchListing()
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [id])
 
   if (loading) {
@@ -123,7 +153,7 @@ export default function ListingPage() {
             ₹{listing.price.toLocaleString('en-IN')}
           </p>
 
-          {/* Views counter */}
+          {/* Views counter — updates live */}
           <p className="text-sm text-slate-400 mb-4 sm:mb-6 flex items-center gap-3">
             <span className="flex items-center gap-1.5">
               <svg
@@ -137,7 +167,8 @@ export default function ListingPage() {
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              {listing.views || 0} views
+              {listing.views || 0}{' '}
+              {listing.views === 1 ? 'view' : 'views'}
             </span>
           </p>
 
